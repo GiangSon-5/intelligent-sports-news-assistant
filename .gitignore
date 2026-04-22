@@ -1,0 +1,45 @@
+# === Secrets & Config (CRITICAL) ===
+.env
+.env.local
+.env.*
+!.env.example
+
+# === Python & Virtual Environments ===
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# === Testing & Coverage ===
+.pytest_cache/
+.coverage
+htmlcov/
+storage/test_results/
+
+# === Scrapy ===
+.scrapy/
+
+# === Airflow & Docker ===
+airflow.db
+webserver_config.py
+# Ignore general logs but keep our specific JSON log examples
+logs/*
+!logs/current_run.log.json
+!logs/previous_run.log.json
+
+# === Storage & Data ===
+# Per user request: keep .json files for reporting visibility
+# We only ignore temporary files
+storage/temp/
+.DS_Store
+Thumbs.db
+
+# === IDEs ===
+.vscode/
+.idea/
+*.swp

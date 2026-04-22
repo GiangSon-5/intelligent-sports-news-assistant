@@ -1,0 +1,31 @@
+# Handle line endings automatically for files detected as text 
+# and truly binary files should not be touched.
+* text=auto
+
+# Force LF line endings for all code and configuration files
+# This ensures compatibility with Docker and Airflow (Linux-based)
+*.py text eol=lf
+*.sh text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.j2 text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Explicitly declare binary files
+# These will not be normalized or merged as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Data files
+*.csv text eol=lf

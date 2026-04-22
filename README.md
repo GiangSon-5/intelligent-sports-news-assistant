@@ -1,1 +1,0 @@
-# intelligent-sports-news-assistant
