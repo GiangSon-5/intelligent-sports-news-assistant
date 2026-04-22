@@ -210,78 +210,7 @@ Select-String "ERROR" logs/current_run.log.json
 
 ---
 
-## 6. Project Structure
-
-```
-sports_ai_project/
-├── main.py                       # Entry point
-├── .env                          # API keys (SELF-CREATED from .env.example)
-├── .env.example                  # Environment variable template
-├── requirements.txt              # Python dependencies
-├── setup.py                      # Package setup
-├── logger.py                     # Base Logger (2-session rotation)
-│
-├── config/                       # Configuration management
-│   ├── __init__.py
-│   └── settings.py               # Pydantic Settings
-│
-├── crawler/                      # Data collection (Scrapy)
-│   ├── scrapy.cfg
-│   ├── run.py                    # Runs 3 spiders in parallel
-│   └── news_crawler/
-│       ├── items.py              # Article schema
-│       ├── settings.py           # Scrapy settings
-│       ├── middlewares.py        # Custom middlewares
-│       ├── pipelines.py          # 4 pipelines (validate→date→dedup→export)
-│       └── spiders/
-│           ├── vnexpress_spider.py
-│           ├── thanhnien_spider.py
-│           └── tuoitre_spider.py
-│
-├── storage/                      # JSON Storage
-│   ├── json_store.py             # Repository Pattern
-│   ├── raw/                      # Raw data
-│   ├── processed/                # Cleaned data
-│   └── reports/                  # MD/PDF Reports
-│
-├── processing/                   # Data processing (Pandas)
-│   ├── cleaner.py                # 6-step cleaning pipeline
-│   └── analyzer.py               # Statistics
-│
-├── ai_engine/                    # AI/NLP (LangChain)
-│   ├── orchestrator.py           # Gemini + OpenAI fallback
-│   └── prompts.py                # Prompt templates
-│
-├── reporting/                    # Report generation
-│   ├── markdown_generator.py     # Jinja2 → Markdown
-│   ├── pdf_exporter.py           # Markdown → PDF
-│   └── templates/
-│       └── weekly_report.md.j2   # Jinja2 template
-│
-├── pipeline/                     # Central Orchestrator
-│   └── orchestrator.py           # Crawl → Process → AI → Report
-│
-├── tests/                        # Unit tests + A/B testing
-│   ├── conftest.py               # Shared fixtures
-│   ├── test_config.py            # Config validation tests
-│   ├── test_storage.py           # Storage CRUD tests
-│   ├── test_crawler.py           # Crawler pipeline tests
-│   ├── test_processing.py        # Cleaning/analyzer tests
-│   ├── test_ai_engine.py         # AI orchestrator tests
-│   ├── test_reporting.py         # Report generation tests
-│   ├── test_pipeline.py          # Pipeline + logger tests
-│   └── ab_testing/               # A/B Testing framework
-│       ├── variants.py           # Prompt/Model variants
-│       ├── evaluator.py          # Output scoring
-│       ├── experiment.py         # Experiment engine
-│       └── run_ab_test.py        # CLI entry point
-├── logs/                         # Runtime logs (2-session rotation)
-└── docs/                         # SPEC & SRS files (in each module)
-```
-
----
-
-## 7. Troubleshooting
+## 6. Troubleshooting
 
 | Issue | Cause | Solution |
 |---------|-------------|-----------|
@@ -296,7 +225,7 @@ sports_ai_project/
 
 ---
 
-## 8. Automation & A/B Testing
+## 7. Automation & A/B Testing
 
 The entire operational testing system (High coverage Automation Unit Tests) periodically and setting up extended trial features (A/B Testing on LLM configurations, Prompts) has been separated and the process standardized into an independent document.
 
