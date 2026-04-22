@@ -1,0 +1,22 @@
+{
+  "experiment_name": "flash_vs_lite",
+  "variant_a_name": "gemini_flash",
+  "variant_b_name": "gemini_lite",
+  "variant_a_output": "ERROR: ChatGoogleGenerativeAIError: Error calling model 'gemini-2.0-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash\\nPlease retry in 42.068492787s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'model': 'gemini-2.0-flash', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-2.0-flash', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-2.0-flash'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '42s'}]}}",
+  "variant_b_output": "**Tổng quan Thể thao Tuần [N/A - N/A]**\n\nTrong tuần báo cáo vừa qua, bức tranh thể thao Việt Nam ghi nhận sự sôi động với nhiều hoạt động đa dạng, từ các giải đấu chuyên nghiệp đến các sự kiện cộng đồng, thể hiện sức hút và sự phát triển không ngừng của các bộ môn. Xu hướng nổi bật nhất là sự gia tăng của các giải đấu thể thao chuyên nghiệp có quy mô và tính cạnh tranh cao, điển hình là việc xác định các đội đầu tiên giành quyền tham dự Cúp bóng chuyền Hùng Vương 2026 và sự kiện VBA Rookie Draft 2026, nơi các tài năng trẻ bóng rổ Việt Nam có cơ hội thể hiện mình. Bên cạnh đó, các sự kiện thể thao kết hợp du lịch và văn hóa như Ngày hội đạp xe Vì hòa bình tại Thành cổ Quảng Trị và giải đua thuyền sup tại Quy Nhơn cũng thu hút sự quan tâm lớn, cho thấy xu hướng thể thao ngày càng gắn liền với các hoạt động cộng đồng và quảng bá địa phương.\n\nNhững diễn biến quan trọng nhất bao gồm sự chuẩn bị kỹ lưỡng cho các giải đấu sắp tới, với việc các đội bóng chuyền đã hoàn tất vòng loại Cúp Hùng Vương và các CLB bóng rổ đang tìm kiếm những nhân tố mới qua kỳ tuyển chọn. Đáng chú ý, màn trình diễn ấn tượng của các tuyển thủ như Hoàng Hên và Xuân Son trong các trận đấu gần đây của đội tuyển Việt Nam đã mang lại tín hiệu tích cực về sức mạnh tấn công, đặc biệt khi đối mặt với các đối thủ mạnh. Nhận định tổng thể, lĩnh vực thể thao Việt Nam đang có những bước tiến vững chắc, với sự đầu tư vào các giải đấu chuyên nghiệp, sự phát triển của các tài năng trẻ và sự lan tỏa của các hoạt động thể thao cộng đồng, tạo nên một bức tranh đầy hứa hẹn cho tương lai.",
+  "variant_a_latency_ms": 34829.23,
+  "variant_b_latency_ms": 2876.18,
+  "variant_a_score": 59.3,
+  "variant_b_score": 87.0,
+  "winner": "gemini_lite",
+  "margin": 27.7,
+  "verdict": "gemini_lite tốt hơn gemini_flash",
+  "timestamp": "2026-04-21T21:56:21.573119+07:00",
+  "input_summary": "Model A: gemini-2.0-flash, Model B: gemini-2.5-flash-lite",
+  "metadata": {
+    "model_a": "gemini-2.0-flash",
+    "model_b": "gemini-2.5-flash-lite",
+    "temperature_a": 0.3,
+    "temperature_b": 0.3
+  }
+}

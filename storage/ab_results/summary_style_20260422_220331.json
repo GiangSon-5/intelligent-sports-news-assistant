@@ -1,0 +1,17 @@
+{
+  "experiment_name": "summary_style",
+  "variant_a_name": "summary_concise",
+  "variant_b_name": "summary_detailed",
+  "variant_a_output": "ERROR: ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+  "variant_b_output": "ERROR: ServerError: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+  "variant_a_latency_ms": 50188.5,
+  "variant_b_latency_ms": 46360.45,
+  "variant_a_score": 39.1,
+  "variant_b_score": 39.1,
+  "winner": "TIE",
+  "margin": 0.0,
+  "verdict": "Hai variants cho kết quả tương đương",
+  "timestamp": "2026-04-22T22:03:31.704323+07:00",
+  "input_summary": "Keys: ['article_summaries', 'text_corpus', 'total_articles', 'date_from', 'date_to', 'sources', 'num_keywords', 'articles'], total_chars: 1403351",
+  "metadata": {}
+}
