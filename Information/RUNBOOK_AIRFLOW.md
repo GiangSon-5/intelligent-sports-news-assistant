@@ -110,5 +110,5 @@ docker-compose down -v --rmi local
 ```
 
 > [!IMPORTANT]
-> **Safety Note:** These `docker-compose` commands are safe because they only target resources associated with this specific project folder. Your other company projects, databases, or images in Docker will remain untouched.
+> **Safety Note:** These `docker-compose` commands are safe because they only target resources associated with this specific project folder.
 
