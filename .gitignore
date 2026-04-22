@@ -19,7 +19,7 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
-storage/test_results/
+!storage/test_results/
 
 # === Scrapy ===
 .scrapy/
