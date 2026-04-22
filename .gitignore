@@ -27,10 +27,10 @@ htmlcov/
 # === Airflow & Docker ===
 airflow.db
 webserver_config.py
-# Ignore general logs but keep our specific JSON log examples
-logs/*
-!logs/current_run.log.json
-!logs/previous_run.log.json
+# Allow all JSON logs for visibility, ignore other potential junk logs
+logs/*.log
+!logs/*.log.json
+
 
 # === Storage & Data ===
 # Per user request: keep .json files for reporting visibility
