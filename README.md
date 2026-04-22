@@ -1,5 +1,6 @@
 # 📰 Intelligent Sports News Assistant
-**MLOps Pipeline Project for Intelligent Sports News Summary System**
+**Name:** Nguyễn Quyết Giang Sơn  
+**Project:** MLOps Pipeline for Intelligent Sports News Summary System
 
 ![Pipeline Architecture](imgs/FLOWCHART_X1.png)
 
@@ -16,6 +17,36 @@
 |-----------|-------------|
 | **Input** | Stream of sports news articles from 3 sources: VnExpress (`vnexpress.net/the-thao`), Thanh Niên (`thanhnien.vn/the-thao`), Tuổi Trẻ (`tuoitre.vn/the-thao.htm`) — collected via Scrapy Spiders |
 | **Output** | Weekly Summary Report (Markdown + PDF) including: Executive Summary, Trending Keywords, Highlighted News |
+
+---
+
+## 2. 📘 Technical Report (Project Submission)
+
+This section summarizes the core requirements for the Technical Test.
+
+### 2.1 Submission Components
+*   **Source Code:** [Link to GitHub Repository]
+*   **Technical Report:** This `README.md` provides the workflow explanation and results summary.
+*   **Weekly Summary Report (Latest):** 
+    *   📄 [Markdown Version](storage/reports/weekly_report_2026-04-15_2026-04-22.md)
+    *   📥 [PDF Version](storage/reports/weekly_report_2026-04-15_2026-04-22.pdf)
+
+### 2.2 Implementation Workflow
+The project implements an end-to-end MLOps pipeline:
+1.  **Extraction:** Scrapy spiders crawl sports data from VnExpress, Thanh Niên, and Tuổi Trẻ.
+2.  **Processing:** Automated cleaning and 7-day date filtering using Pandas.
+3.  **Intelligence:** LangChain orchestration with Gemini API for summarization and trend analysis.
+4.  **Automation:** Daily scheduling via Dockerized Airflow at 6:00 AM.
+
+### 2.3 Achieved Results (Weekly Summary)
+> **Executive Summary:** Tuần báo cáo chứng kiến bức tranh thể thao Việt Nam và quốc tế đầy sôi động... [U.17 Việt Nam đã tạo nên một dấu mốc lịch sử khi xuất sắc đánh bại U.17 Úc].
+> 
+> **Trending Keywords:** #U.17ViệtNam (19), #NgoạiHạngAnh (12), #VBARookieDraft (5).
+> 
+> **Highlighted News:**
+> *   **U.17 Việt Nam ngược dòng ngoạn mục đánh bại U.17 Úc** ([Source](https://thanhnien.vn/u17-viet-nam-0-0-u17-uc-ban-ket-dong-nam-a-thu-thach-cuc-dai-185260422134952388.htm))
+> *   **Hạ Arsenal, Man City giành quyền tự quyết** ([Source](https://vnexpress.net/ha-arsenal-man-city-gianh-quyen-tu-quyet-o-ngoai-hang-anh-5064409.html))
+> *   **VBA Rookie Draft 2026: Lộ diện 6 tân binh 'khủng long'** ([Source](https://thanhnien.vn/vba-rookie-draft-2026-lo-dien-6-tan-binh-khung-long-185260417132309279.htm))
 
 ---
 
