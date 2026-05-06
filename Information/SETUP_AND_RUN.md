@@ -47,6 +47,9 @@ pip install -r requirements.txt
 
 # Install project as an editable package (for cross-module imports)
 pip install -e .
+
+# Install Playwright browser (for visual verification tests)
+playwright install chromium
 ```
 
 ---
@@ -220,7 +223,9 @@ Select-String "ERROR" logs/current_run.log.json
 | `ModuleNotFoundError: No module named 'scrapy'` | Dependencies not installed | Run `pip install -r requirements.txt` |
 | Crawled 0 articles | Website changed HTML | Check selectors in spiders, update CSS/XPath |
 | AI analysis empty | API key expired / quota | Check API key, see ERROR log in `current_run.log.json` |
-| PDF cannot be created | WeasyPrint not installed | `pip install WeasyPrint` + install GTK system deps |
+| `PDF cannot be created` | WeasyPrint not installed | `pip install WeasyPrint` + install GTK system deps |
+| `ModuleNotFoundError: No module named 'playwright'` | Playwright not installed | `pip install playwright` |
+| `playwright._impl._errors.ExecutableNotFoundError` | Browser not downloaded | `playwright install chromium` |
 | Log file too large | Run many times consecutively | System self-deletes — always keeps only 2 log files |
 
 ---

@@ -109,7 +109,7 @@ class PipelineOrchestrator:
     # ------------------------------------------------------------------
 
     @log_function("pipeline")
-    def run(self, step: str = "all") -> dict:
+    def run(self, step: str = "all", target_date: str | None = None) -> dict:
         """
         Run pipeline — full or step-by-step.
         
@@ -120,7 +120,7 @@ class PipelineOrchestrator:
             dict: Pipeline result with status and step details.
         """
         self.result["started_at"] = datetime.now(_VN_TZ).isoformat()
-        self.logger.info(f"🚀 Pipeline started — step={step}, env={self.settings.ENV}")
+        self.logger.info(f"Pipeline started - step={step}, env={self.settings.ENV}")
 
         try:
             valid_steps = ("all", "crawl", "process", "analyze", "report")
@@ -131,13 +131,13 @@ class PipelineOrchestrator:
                 self._step_crawl()
 
             if step in ("all", "process"):
-                self._step_process()
+                self._step_process(target_date)
 
             if step in ("all", "analyze"):
-                self._step_analyze()
+                self._step_analyze(target_date)
 
             if step in ("all", "report"):
-                self._step_report()
+                self._step_report(target_date)
 
             # Determine final status
             failed_steps = [
@@ -146,15 +146,15 @@ class PipelineOrchestrator:
             ]
             if failed_steps:
                 self.result["status"] = "PARTIAL"
-                self.logger.warning(f"⚠️ Pipeline partially completed. Failed steps: {failed_steps}")
+                self.logger.warning(f"Pipeline partially completed. Failed steps: {failed_steps}")
             else:
                 self.result["status"] = "COMPLETED"
-                self.logger.info("✅ Pipeline completed successfully")
+                self.logger.info("Pipeline completed successfully")
 
         except Exception as e:
             self.result["status"] = "FAILED"
             self.result["errors"].append(f"{type(e).__name__}: {str(e)}")
-            self.logger.error(f"❌ Pipeline failed: {e}", exc_info=True)
+            self.logger.error(f"Pipeline failed: {e}", exc_info=True)
 
         finally:
             self.result["completed_at"] = datetime.now(_VN_TZ).isoformat()
@@ -169,7 +169,7 @@ class PipelineOrchestrator:
 
     def _step_crawl(self) -> None:
         """Step 1: Crawl news from 3 sources."""
-        self.logger.info("📥 Step 1/4: CRAWL — Starting parallel crawl...")
+        self.logger.info("Step 1/4: CRAWL - Starting parallel crawl...")
         start = time.perf_counter()
 
         try:
@@ -194,7 +194,7 @@ class PipelineOrchestrator:
 
             if crawl_result.get("sources_failed"):
                 self.logger.warning(
-                    f"⚠️ Some sources failed: {crawl_result['sources_failed']}"
+                    f"Some sources failed: {crawl_result['sources_failed']}"
                 )
 
         except Exception as e:
@@ -203,12 +203,12 @@ class PipelineOrchestrator:
                 "duration_seconds": round(time.perf_counter() - start, 1),
                 "error": str(e),
             }
-            self.logger.error(f"❌ Crawl failed: {e}", exc_info=True)
+            self.logger.error(f"Crawl failed: {e}", exc_info=True)
             raise
 
         self.result["steps"]["crawl"] = step_result
         self.logger.info(
-            f"📥 Crawl done: {step_result.get('articles_crawled', 0)} articles "
+            f"Crawl done: {step_result.get('articles_crawled', 0)} articles "
             f"in {step_result['duration_seconds']}s"
         )
 
@@ -216,18 +216,21 @@ class PipelineOrchestrator:
     #  Step 2: PROCESS (SPEC §3.2)
     # ------------------------------------------------------------------
 
-    def _step_process(self) -> None:
+    def _step_process(self, target_date: str | None = None) -> None:
         """Step 2: Clean and analyze data."""
-        self.logger.info("🔧 Step 2/4: PROCESS — Cleaning & analyzing data...")
+        self.logger.info(f"Step 2/4: PROCESS - Targeting date: {target_date or 'today'}")
         start = time.perf_counter()
 
         try:
-            # Load raw data
+            # Use provided date or today
             today = datetime.now(_VN_TZ).strftime("%Y-%m-%d")
-            raw_articles = self.store.load_raw_articles(date=today)
+            active_date = target_date or today
+
+            # Load raw data
+            raw_articles = self.store.load_raw_articles(date=active_date)
 
             if not raw_articles:
-                self.logger.warning("⚠️ No raw articles for today. Loading all raw files...")
+                self.logger.warning("No raw articles for today. Loading all raw files...")
                 raw_articles = self.store.load_raw_articles()
 
             # Clean
@@ -238,7 +241,8 @@ class PipelineOrchestrator:
 
             # Save processed
             self.processed_articles = df.to_dict("records")
-            self.store.save_processed_articles(self.processed_articles, today)
+            # Always save processed result to the specific date requested
+            self.store.save_processed_articles(self.processed_articles, active_date)
 
             step_result = {
                 "status": "SUCCESS",
@@ -254,12 +258,12 @@ class PipelineOrchestrator:
                 "duration_seconds": round(time.perf_counter() - start, 1),
                 "error": str(e),
             }
-            self.logger.error(f"❌ Process failed: {e}", exc_info=True)
+            self.logger.error(f"Process failed: {e}", exc_info=True)
             raise
 
         self.result["steps"]["process"] = step_result
         self.logger.info(
-            f"🔧 Process done: {step_result.get('articles_input', 0)} → "
+            f"Process done: {step_result.get('articles_input', 0)} -> "
             f"{step_result.get('articles_output', 0)} articles "
             f"(removed {step_result.get('articles_removed', 0)})"
         )
@@ -268,17 +272,18 @@ class PipelineOrchestrator:
     #  Step 3: ANALYZE (SPEC §3.2)
     # ------------------------------------------------------------------
 
-    def _step_analyze(self) -> None:
+    def _step_analyze(self, target_date: str | None = None) -> None:
         """Step 3: AI processing (summarize, keywords, highlights)."""
-        self.logger.info("🤖 Step 3/4: ANALYZE — AI processing with LangChain...")
+        self.logger.info(f"Step 3/4: ANALYZE - Targeting date: {target_date or 'today'}")
         start = time.perf_counter()
 
         try:
             today = datetime.now(_VN_TZ).strftime("%Y-%m-%d")
+            active_date = target_date or today
 
             # Load from storage if running individual step
             if self.processed_articles is None:
-                self.processed_articles = self.store.load_processed_articles(date=today)
+                self.processed_articles = self.store.load_processed_articles(date=active_date)
 
                 if not self.processed_articles:
                     self.processed_articles = self.store.load_processed_articles()
@@ -299,7 +304,7 @@ class PipelineOrchestrator:
             )
 
             # Persist AI result for the report step
-            self.store.save_ai_result(self.ai_result, today)
+            self.store.save_ai_result(self.ai_result, active_date)
 
             step_result = {
                 "status": "SUCCESS",
@@ -315,12 +320,12 @@ class PipelineOrchestrator:
                 "duration_seconds": round(time.perf_counter() - start, 1),
                 "error": str(e),
             }
-            self.logger.error(f"❌ AI Analysis failed: {e}", exc_info=True)
+            self.logger.error(f"AI Analysis failed: {e}", exc_info=True)
             raise
 
         self.result["steps"]["analyze"] = step_result
         self.logger.info(
-            f"🤖 Analysis done: model={step_result.get('model_used', 'N/A')}, "
+            f"Analysis done: model={step_result.get('model_used', 'N/A')}, "
             f"fallback={step_result.get('fallback_triggered', False)}"
         )
 
@@ -328,26 +333,27 @@ class PipelineOrchestrator:
     #  Step 4: REPORT (SPEC §3.2)
     # ------------------------------------------------------------------
 
-    def _step_report(self) -> None:
+    def _step_report(self, target_date: str | None = None) -> None:
         """Step 4: Generate Markdown + PDF report."""
-        self.logger.info("📊 Step 4/4: REPORT — Generating weekly report...")
+        self.logger.info(f"Step 4/4: REPORT - Targeting date: {target_date or 'today'}")
         start = time.perf_counter()
 
         try:
             today = datetime.now(_VN_TZ).strftime("%Y-%m-%d")
+            active_date = target_date or today
 
             # Load AI result if running individual step
             if self.ai_result is None:
-                self.ai_result = self.store.load_ai_result(date=today)
+                self.ai_result = self.store.load_ai_result(date=active_date)
 
             if self.ai_result is None:
                 raise ValueError(
-                    "No AI analysis result found. Run --step analyze first."
+                    f"No AI analysis result found for {active_date}. Run --step analyze first."
                 )
 
             if self.analysis is None:
                 # Reload processed articles to restore metadata
-                self.processed_articles = self.store.load_processed_articles(date=today)
+                self.processed_articles = self.store.load_processed_articles(date=active_date)
                 if not self.processed_articles:
                     self.processed_articles = self.store.load_processed_articles()
                 
@@ -387,9 +393,9 @@ class PipelineOrchestrator:
                     pdf_full_path = os.path.join("storage", "reports", pdf_filename)
                     pdf_path = self.pdf_exporter.export(md_content, pdf_full_path)
                 except Exception as e:
-                    self.logger.warning(f"⚠️ PDF export failed: {e}. Markdown is available.")
+                    self.logger.warning(f"PDF export failed: {e}. Markdown is available.")
             else:
-                self.logger.warning("⚠️ WeasyPrint not installed. PDF export skipped.")
+                self.logger.warning("WeasyPrint not installed. PDF export skipped.")
 
             step_result = {
                 "status": "SUCCESS",
@@ -404,12 +410,12 @@ class PipelineOrchestrator:
                 "duration_seconds": round(time.perf_counter() - start, 1),
                 "error": str(e),
             }
-            self.logger.error(f"❌ Report generation failed: {e}", exc_info=True)
+            self.logger.error(f"Report generation failed: {e}", exc_info=True)
             raise
 
         self.result["steps"]["report"] = step_result
         self.logger.info(
-            f"📊 Report done: MD={step_result.get('markdown_path', 'N/A')}, "
+            f"Report done: MD={step_result.get('markdown_path', 'N/A')}, "
             f"PDF={step_result.get('pdf_path', 'N/A')}"
         )
 
@@ -440,13 +446,13 @@ class PipelineOrchestrator:
             steps_info.append(f"{step_name}={status}({duration}s)")
 
         summary = (
-            f"\n{'═' * 55}\n"
+            f"\n{'-' * 55}\n"
             f"  PIPELINE SUMMARY\n"
             f"  Status:   {self.result['status']}\n"
             f"  Duration: {self.result['duration_seconds']}s\n"
             f"  Steps:    {' | '.join(steps_info)}\n"
             f"  Errors:   {len(self.result['errors'])}\n"
-            f"{'═' * 55}"
+            f"{'-' * 55}"
         )
 
         self.logger.info(summary)

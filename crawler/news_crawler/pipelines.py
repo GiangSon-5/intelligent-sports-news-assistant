@@ -122,22 +122,53 @@ class DateNormalizationPipeline:
 
         # Pre-processing: remove noise characters, normalize whitespace
         clean_raw = re.sub(r"\s+", " ", raw).strip()
+        # Remove day of week variations (Thứ hai, THỨ HAI, T2, CN, Monday, Mon, etc.)
+        day_patterns = [
+            r"(Thứ\s+[a-z0-9]+|Chủ\s+nhật)", # Thứ hai... Thứ 7, Chủ nhật
+            r"(T[2-7]|CN)",                  # T2... T7, CN
+            r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)", # English full
+            r"(Mon|Tue|Wed|Thu|Fri|Sat|Sun)" # English short
+        ]
+        combined_pattern = r"(" + "|".join(day_patterns) + r")[\s,]*"
+        clean_raw = re.sub(combined_pattern, "", clean_raw, flags=re.IGNORECASE)
+        # Remove timezone info
+        clean_raw = re.sub(r"\(?GMT[+-]\d+\)?", "", clean_raw).strip()
 
         # 1. Pattern: dd/mm/yyyy HH:MM (and variants using -, . separators)
-        # Example: 14/04/2026 20:30, 14-04-2026, 14.04.2026
-        match = re.search(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})[\s,]*(\d{1,2}):(\d{2})", clean_raw)
+        match = re.search(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})[\s,]*(\d{1,2}):(\d{2})", clean_raw)
         if match:
             day, month, year, hour, minute = [int(x) for x in match.groups()]
             return self._to_iso(year, month, day, hour, minute)
 
         # 2. Pattern: HH:MM dd/mm/yyyy (Reversed)
-        match = re.search(r"(\d{1,2}):(\d{2})[\s,]*(\d{1,2})[/-](\d{1,2})[/-](\d{4})", clean_raw)
+        match = re.search(r"(\d{1,2}):(\d{2})[\s,]*(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})", clean_raw)
         if match:
             hour, minute, day, month, year = [int(x) for x in match.groups()]
             return self._to_iso(year, month, day, hour, minute)
 
-        # 3. Pattern: dd/mm/yyyy (Date only)
-        match = re.search(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", clean_raw)
+        # 3. Relative Time: "X phút trước", "X giờ trước", "Hôm qua"
+        now = datetime.now(_VN_TZ)
+        
+        match = re.search(r"(\d+)\s+phút\s+trước", clean_raw, re.IGNORECASE)
+        if match:
+            dt = now - timedelta(minutes=int(match.group(1)))
+            return dt.isoformat()
+            
+        match = re.search(r"(\d+)\s+giờ\s+trước", clean_raw, re.IGNORECASE)
+        if match:
+            dt = now - timedelta(hours=int(match.group(1)))
+            return dt.isoformat()
+
+        if "hôm qua" in clean_raw.lower():
+            dt = now - timedelta(days=1)
+            # Try to extract time from "Hôm qua, 14:30"
+            time_match = re.search(r"(\d{1,2}):(\d{2})", clean_raw)
+            if time_match:
+                dt = dt.replace(hour=int(time_match.group(1)), minute=int(time_match.group(2)))
+            return dt.isoformat()
+
+        # 4. Pattern: dd/mm/yyyy (Date only)
+        match = re.search(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})", clean_raw)
         if match:
             day, month, year = [int(x) for x in match.groups()]
             return self._to_iso(year, month, day)

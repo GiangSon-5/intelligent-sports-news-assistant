@@ -1,205 +1,127 @@
 """
 Reporting Module — pdf_exporter.py
-Markdown → HTML → PDF via WeasyPrint according to SPEC §3.3.
-WeasyPrint is an OPTIONAL dependency (Edge Case #6).
+Markdown → HTML → PDF via fpdf2 according to SPEC §3.3.
+Uses fpdf2's HTML rendering for accurate table and format support.
 """
 
 import time
+import os
 from pathlib import Path
+from typing import Optional
+import markdown as md_lib
 
 from logger import get_logger, log_function
 
 _log = get_logger("reporting.pdf")
 
 
-# CSS Styling for PDF (SPEC §3.3 / SRS Rule #9)
-_PDF_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap');
-
-body {
-    font-family: 'Noto Sans', 'Segoe UI', 'Arial', sans-serif;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 40px;
-    color: #333;
-    line-height: 1.7;
-    font-size: 14px;
-}
-
-h1 {
-    color: #1a73e8;
-    border-bottom: 3px solid #1a73e8;
-    padding-bottom: 12px;
-    font-size: 24px;
-    margin-top: 0;
-}
-
-h2 {
-    color: #34a853;
-    margin-top: 35px;
-    font-size: 20px;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 8px;
-}
-
-h3 {
-    color: #4285f4;
-    font-size: 16px;
-    margin-top: 25px;
-}
-
-table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 20px 0;
-    font-size: 13px;
-}
-
-th, td {
-    border: 1px solid #ddd;
-    padding: 10px 12px;
-    text-align: left;
-}
-
-th {
-    background: #f1f3f4;
-    font-weight: 600;
-    color: #333;
-}
-
-tr:nth-child(even) {
-    background: #fafafa;
-}
-
-blockquote {
-    border-left: 4px solid #4285f4;
-    margin: 15px 0;
-    padding: 12px 20px;
-    background: #f8f9fa;
-    border-radius: 0 4px 4px 0;
-    font-style: normal;
-}
-
-blockquote p {
-    margin: 5px 0;
-}
-
-a {
-    color: #1a73e8;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-hr {
-    border: none;
-    border-top: 1px solid #e0e0e0;
-    margin: 30px 0;
-}
-
-p:last-child {
-    color: #888;
-    font-size: 12px;
-    font-style: italic;
-}
-
-strong {
-    font-weight: 600;
-}
-
-@page {
-    size: A4;
-    margin: 2cm;
-}
-"""
-
-
 class PdfExporter:
     """
-    Convert Markdown → HTML → PDF via WeasyPrint.
-    WeasyPrint is an optional dependency — if not installed, skip gracefully.
+    Convert Markdown → HTML → PDF via fpdf2.
+    Supports tables, bold text, and Vietnamese Unicode fonts.
     """
 
     def __init__(self):
-        self._weasyprint_available = False
-        self._check_weasyprint()
+        self._fpdf_available = False
+        self._check_fpdf()
 
-    def _check_weasyprint(self) -> None:
-        """Check if WeasyPrint is available. Batched to handle GTK issues on Windows."""
+    def _find_vietnamese_font(self, style: str = "") -> Optional[str]:
+        """Look for font files for different styles (Regular, Bold, Italic, Bold-Italic)."""
+        font_map = {
+            "": "arial.ttf",
+            "B": "arialbd.ttf",
+            "I": "ariali.ttf",
+            "BI": "arialbi.ttf",
+        }
+        
+        filename = font_map.get(style, "arial.ttf")
+        path = os.path.join("C:\\Windows\\Fonts", filename)
+        
+        if os.path.exists(path):
+            return path
+        
+        # Fallback for Linux or if Arial is missing
+        fallbacks = ["tahoma.ttf", "DejaVuSans.ttf"]
+        for fb in fallbacks:
+            fb_path = os.path.join("C:\\Windows\\Fonts", fb)
+            if os.path.exists(fb_path):
+                return fb_path
+                
+        return None
+
+    def _check_fpdf(self) -> None:
+        """Check if fpdf2 is available."""
         try:
-            import weasyprint  # noqa: F401
-            self._weasyprint_available = True
-            _log.info("PdfExporter initialized | WeasyPrint available ✓")
-        except (ImportError, OSError) as e:
-            self._weasyprint_available = False
-            _log.warning(f"WeasyPrint check failed: {e}. PDF export disabled.")
+            from fpdf import FPDF # noqa: F401
+            self._fpdf_available = True
+            _log.info("PdfExporter initialized | fpdf2 available ✓")
+        except ImportError:
+            self._fpdf_available = False
+            _log.warning("fpdf2 not found. Run: pip install fpdf2")
 
     @property
     def is_available(self) -> bool:
         """Check if PDF export is available."""
-        return self._weasyprint_available
+        return self._fpdf_available
 
     @log_function("reporting.pdf")
     def export(self, markdown_content: str, output_path: str) -> str:
         """
         Convert Markdown → HTML → PDF.
-
-        Args:
-            markdown_content: Rendered Markdown string
-            output_path: Path to output PDF file
-
-        Returns:
-            str: Path to the created PDF file
-
-        Raises:
-            ImportError: If WeasyPrint is not installed
-            Exception: Other error when rendering PDF
         """
         start = time.perf_counter()
 
-        if not self._weasyprint_available:
-            raise ImportError(
-                "WeasyPrint is not installed. "
-                "Install: pip install WeasyPrint "
-                "(requires system dependencies: GTK+, Pango)"
-            )
+        if not self._fpdf_available:
+            raise ImportError("fpdf2 is not installed. Run: pip install fpdf2")
 
-        import markdown as md_lib
-        from weasyprint import HTML
+        from fpdf import FPDF, HTMLMixin
 
-        # Step 1: Markdown → HTML
-        html_body = md_lib.markdown(
-            markdown_content,
-            extensions=["tables", "fenced_code", "nl2br"],
+        class HTMLPDF(FPDF, HTMLMixin):
+            pass
+
+        pdf = HTMLPDF()
+        
+        # Register all 4 styles to prevent fallback to Helvetica
+        styles = ["", "B", "I", "BI"]
+        for s in styles:
+            fpath = self._find_vietnamese_font(s)
+            if fpath:
+                pdf.add_font("Arial", s, fpath)
+            elif s != "": # If bold/italic missing, use regular
+                pdf.add_font("Arial", s, self._find_vietnamese_font(""))
+
+        pdf.add_page()
+        pdf.set_font("Arial", size=11)
+
+        # Step 1: Convert Markdown to HTML
+        html_content = md_lib.markdown(
+            markdown_content, 
+            extensions=['tables', 'fenced_code', 'nl2br']
         )
 
-        # Step 2: Wrap in full HTML document with CSS
-        full_html = f"""<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Sports Report</title>
-    <style>{_PDF_CSS}</style>
-</head>
-<body>
-{html_body}
-</body>
-</html>"""
+        # Step 2: Clean up HTML
+        # Ensure we use Arial in the HTML tags
+        html_content = f'<font face="Arial">{html_content}</font>'
 
-        # Step 3: HTML → PDF
+        # Step 3: Write HTML to PDF
+        try:
+            pdf.write_html(html_content)
+        except Exception as e:
+            _log.warning(f"HTML rendering warning: {e}")
+            pdf.ln(5)
+            pdf.write(5, "Error rendering some HTML elements. Content might be incomplete.")
+
+        # Ensure output dir exists
         output_dir = Path(output_path).parent
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        HTML(string=full_html).write_pdf(output_path)
+        pdf.output(output_path)
 
         file_size = Path(output_path).stat().st_size
         elapsed = round((time.perf_counter() - start) * 1000, 2)
 
         _log.info(
-            f"PDF exported | path={output_path} | "
+            f"PDF exported (HTML mode) | path={output_path} | "
             f"size={file_size} bytes | latency={elapsed}ms"
         )
 

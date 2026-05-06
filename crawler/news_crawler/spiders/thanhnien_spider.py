@@ -6,6 +6,7 @@ Selectors according to SPEC §3.2.
 
 import hashlib
 import logging
+import re
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -21,66 +22,90 @@ _MAX_PAGES = 10
 class ThanhnienSpider(scrapy.Spider):
     name = "thanhnien"
     allowed_domains = ["thanhnien.vn"]
-    start_urls = ["https://thanhnien.vn/the-thao.htm"]
-
-    custom_settings = {
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 4,
-    }
+    start_urls = []
+    category_id = "185318"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._page_count = 0
+        self._page_count = 1
         self._article_count = 0
         self._start_time = time.perf_counter()
+        self.stop_date = None # Will be set in start_requests
+
+    def start_requests(self):
+        # Dynamic crawl range from settings (defaults to 7 if not set)
+        days_to_crawl = self.settings.getint("CRAWL_DAYS_BACK", 7)
+        self.stop_date = datetime.now(_VN_TZ) - timedelta(days=days_to_crawl)
+        logger.info(f"Spider started | stop_date={self.stop_date.strftime('%Y-%m-%d')} ({days_to_crawl} days)")
+
+        url = f"https://thanhnien.vn/timelinelist/{self.category_id}/{self._page_count}.htm"
+        yield scrapy.Request(url, callback=self.parse)
 
     # ------------------------------------------------------------------
-    #  Phase 1: LIST PAGE
+    #  Phase 1: LIST PAGE (API Based)
     # ------------------------------------------------------------------
 
     def parse(self, response):
         start = time.perf_counter()
-        self._page_count += 1
+        
+        # API returns HTML fragment
+        items = response.xpath("//div[contains(@class, 'box-category-item')]")
+        if not items:
+            logger.warning(f"No items found on API page {self._page_count}")
+            return
 
-        # Selector: Thanh Niên article links (SPEC §3.2)
-        article_links = response.css("h3.box-title-text a::attr(href)").getall()
+        stop_crawling = False
+        articles_on_page = 0
+        
+        for item in items:
+            url = response.urljoin(item.xpath(".//a[contains(@class, 'box-category-link-title')]/@href").get())
+            raw_date = item.xpath(".//*[@title]/@title").get()
+            
+            try:
+                # Robust cleaning before parsing (similar to Pipeline)
+                clean_date = re.sub(r"(Thứ\s+[a-z0-9]+|Chủ\s+nhật|T[2-7]|CN)[\s,]*", "", raw_date, flags=re.IGNORECASE)
+                clean_date = re.sub(r"\(?GMT[+-]\d+\)?", "", clean_date).strip()
+                
+                # Format: "15:30 05/05/2026" or "05/05/2026 15:30"
+                match = re.search(r"(\d{1,2}):(\d{2})\s+(\d{1,2})[/-](\d{1,2})[/-](\d{4})", clean_date)
+                if match:
+                    h, m, d, mo, y = [int(x) for x in match.groups()]
+                    dt = datetime(y, mo, d, h, m, tzinfo=_VN_TZ)
+                else:
+                    # Try reverse format
+                    match = re.search(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})\s+(\d{1,2}):(\d{2})", clean_date)
+                    if match:
+                        d, mo, y, h, m = [int(x) for x in match.groups()]
+                        dt = datetime(y, mo, d, h, m, tzinfo=_VN_TZ)
+                    else:
+                        raise ValueError("No recognizable date pattern")
 
-        # Fallback selectors
-        if not article_links:
-            article_links = response.css("h2.box-title-text a::attr(href)").getall()
-        if not article_links:
-            article_links = response.css("a.box-category-link-title::attr(href)").getall()
-        if not article_links:
-            article_links = response.css("a[href*='thanhnien.vn']::attr(href)").getall()
-            article_links = [l for l in article_links if l.endswith(".htm") and "the-thao" not in l.rstrip("/").rsplit("/", 1)[-1]]
+                if dt < self.stop_date:
+                    stop_crawling = True
+                    logger.info(f"Reached stop date {self.stop_date}. Stopping crawl.")
+                    break
+            except Exception as e:
+                logger.warning(f"Spider Date Check Failed | Raw: '{raw_date}' | Error: {e}")
 
-        if not article_links:
-            logger.warning(f"No articles found on {response.url}")
-        else:
-            logger.info(f"Found {len(article_links)} articles on page {self._page_count}")
+            articles_on_page += 1
+            yield scrapy.Request(
+                url=url,
+                callback=self.parse_article,
+                errback=self.handle_error,
+                meta={'publish_date': raw_date}
+            )
 
-        for link in article_links:
-            full_url = response.urljoin(link)
-            if "thanhnien.vn" in full_url:
-                yield scrapy.Request(
-                    url=full_url,
-                    callback=self.parse_article,
-                    errback=self.handle_error,
-                )
+        logger.info(f"Found {articles_on_page} articles on API page {self._page_count}")
 
         # Pagination
-        if self._page_count < _MAX_PAGES:
-            next_page = response.css("a.next::attr(href)").get()
-            if not next_page:
-                next_page = response.css("a[rel='next']::attr(href)").get()
-            if not next_page:
-                next_page = response.css("div.paging a.active + a::attr(href)").get()
-
-            if next_page:
-                yield scrapy.Request(
-                    url=response.urljoin(next_page),
-                    callback=self.parse,
-                    errback=self.handle_error,
-                )
+        if not stop_crawling and self._page_count < 100:
+            self._page_count += 1
+            next_url = f"https://thanhnien.vn/timelinelist/{self.category_id}/{self._page_count}.htm"
+            yield scrapy.Request(
+                url=next_url,
+                callback=self.parse,
+                errback=self.handle_error
+            )
 
         elapsed = round((time.perf_counter() - start) * 1000, 2)
         logger.debug(f"Listing parse done | url={response.url} | latency={elapsed}ms")
@@ -92,7 +117,7 @@ class ThanhnienSpider(scrapy.Spider):
     def parse_article(self, response):
         start = time.perf_counter()
 
-        # Title (Updated for new structure with nested span)
+        # Title
         title = response.css("h1.detail-title [data-role='title']::text").get()
         if not title:
             title = response.css("h1.detail-title *::text").get()
@@ -105,34 +130,30 @@ class ThanhnienSpider(scrapy.Spider):
 
         title = title.strip()
 
-        # Content (Using broader selector to capture all text blocks)
+        # Content
         paragraphs = response.css("div.detail-content p *::text").getall()
         if not paragraphs:
             paragraphs = response.css("div.detail-content *::text").getall()
-        if not paragraphs:
-            paragraphs = response.css("div#abody p::text").getall()
             
         content = " ".join(p.strip() for p in paragraphs if p.strip())
         
-        # Date (Robust & Exhaustive)
-        raw_date = response.css("meta[property='article:published_time']::attr(content)").get()
+        # Date (Prefer date from meta if available, else from page)
+        raw_date = response.meta.get('publish_date')
+        if not raw_date:
+            raw_date = response.css("meta[property='article:published_time']::attr(content)").get()
         if not raw_date:
             raw_date = response.css("div.detail-time span::text").get()
-        if not raw_date:
-            raw_date = response.css("time::attr(datetime)").get()
-        if not raw_date:
-            raw_date = response.css("div.detail-time::text").get()
         raw_date = (raw_date or "").strip()
 
         if not content or len(content) < 100:
             logger.warning(f"Content too short ({len(content)} chars) from {response.url}")
             return
 
-        # Stable ID Mapping (Canonical URL)
+        # Stable ID Mapping
         canonical_url = response.css("link[rel='canonical']::attr(href)").get() or response.url
         article_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
         
-        # Fingerprinting (Change Detection)
+        # Fingerprinting
         title_hash = hashlib.sha256(title.encode("utf-8")).hexdigest()
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         
@@ -148,7 +169,6 @@ class ThanhnienSpider(scrapy.Spider):
             url=response.url,
             crawled_at=now,
             article_id=article_id,
-            # --- Versioning ---
             title_hash=title_hash,
             content_hash=content_hash,
             version=1,

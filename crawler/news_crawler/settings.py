@@ -65,6 +65,7 @@ try:
     _app_settings = get_settings()
     CONCURRENT_REQUESTS = _app_settings.CONCURRENT_REQUESTS
     DOWNLOAD_DELAY = _app_settings.DOWNLOAD_DELAY
+    CRAWL_DAYS_BACK = _app_settings.CRAWL_DAYS_BACK
     LOG_LEVEL = "DEBUG" if _app_settings.LOG_LEVEL == "DEBUG" else "INFO"
 except Exception:
     pass  # Use defaults above if config is not ready

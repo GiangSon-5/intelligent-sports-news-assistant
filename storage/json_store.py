@@ -257,18 +257,33 @@ class JsonFileStore:
         Edge Case #6: no files → return [].
         """
         pattern = "*.json"
-        if source and date:
+        is_range = date and ":" in date
+        
+        if is_range:
+            # Handle range logic by scanning all files and filtering by name
+            start_date, end_date = date.split(":", 1)
+            _log.info(f"Loading raw articles in range: {start_date} to {end_date}")
+            pattern = "*.json" # Need to scan all to filter manually
+        elif source and date:
             pattern = f"{self._sanitize_filename(date)}_{self._sanitize_filename(source)}.json"
         elif source:
             pattern = f"*_{self._sanitize_filename(source)}.json"
         elif date:
             pattern = f"{self._sanitize_filename(date)}_*.json"
+        else:
+            pattern = "*.json"
 
         articles: list[dict] = []
         files_read = 0
         files_skipped = 0
 
         for filepath in sorted(self.raw_dir.glob(pattern)):
+            # If it's a range, manually check the date prefix of the filename
+            if is_range:
+                file_date = filepath.name.split("_")[0]
+                if not (start_date <= file_date <= end_date):
+                    continue
+
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -331,13 +346,24 @@ class JsonFileStore:
     @log_function("storage")
     def load_processed_articles(self, date: str | None = None) -> list[dict]:
         """Load processed articles."""
-        if date:
+        articles: list[dict] = []
+        is_range = date and ":" in date
+        
+        if is_range:
+            start_date, end_date = date.split(":", 1)
+            _log.info(f"Loading processed articles in range: {start_date} to {end_date}")
+            pattern = "*_processed.json"
+        elif date:
             pattern = f"{self._sanitize_filename(date)}_processed.json"
         else:
             pattern = "*_processed.json"
 
-        articles: list[dict] = []
         for filepath in sorted(self.processed_dir.glob(pattern)):
+            if is_range:
+                file_date = filepath.name.split("_")[0]
+                if not (start_date <= file_date <= end_date):
+                    continue
+
             try:
                 with open(filepath, "r", encoding="utf-8") as f:
                     data = json.load(f)

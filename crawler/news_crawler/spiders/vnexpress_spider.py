@@ -6,6 +6,7 @@ Selectors according to SPEC §3.2.
 
 import hashlib
 import logging
+import re
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -15,7 +16,7 @@ from news_crawler.items import NewsArticleItem
 
 logger = logging.getLogger("sports_assistant.crawler.vnexpress")
 _VN_TZ = timezone(timedelta(hours=7))
-_MAX_PAGES = 10
+_MAX_PAGES = 50
 
 
 class VnexpressSpider(scrapy.Spider):
@@ -32,6 +33,16 @@ class VnexpressSpider(scrapy.Spider):
         self._page_count = 0
         self._article_count = 0
         self._start_time = time.perf_counter()
+        self.stop_date = None # Will be set in start_requests
+
+    def start_requests(self):
+        # Dynamic crawl range from settings (defaults to 7 if not set)
+        days_to_crawl = self.settings.getint("CRAWL_DAYS_BACK", 7)
+        self.stop_date = datetime.now(_VN_TZ) - timedelta(days=days_to_crawl)
+        logger.info(f"Spider started | stop_date={self.stop_date.strftime('%Y-%m-%d')} ({days_to_crawl} days)")
+
+        for url in self.start_urls:
+            yield scrapy.Request(url, callback=self.parse)
 
     # ------------------------------------------------------------------
     #  Phase 1: LIST PAGE
@@ -65,14 +76,13 @@ class VnexpressSpider(scrapy.Spider):
                 meta={"listing_url": response.url},
             )
 
-        # Pagination (maximum MAX_PAGES)
+        # Pagination (maximum _MAX_PAGES)
         if self._page_count < _MAX_PAGES:
-            next_page = response.css("a.next-page::attr(href)").get()
+            next_page = response.css("a.btn-page.next-page::attr(href)").get()
+            if not next_page:
+                next_page = response.css("a.next-page::attr(href)").get()
             if not next_page:
                 next_page = response.css("a[rel='next']::attr(href)").get()
-            if not next_page:
-                # VnExpress uses pattern page/p{N}
-                next_page = response.css("a.btn-page.next-page::attr(href)").get()
 
             if next_page:
                 yield scrapy.Request(
@@ -122,6 +132,22 @@ class VnexpressSpider(scrapy.Spider):
         if not raw_date:
             raw_date = response.css("div.header-content span::text").get()
         raw_date = (raw_date or "").strip()
+        
+        # --- NEW: Early Stopping Logic ---
+        try:
+            # Clean: "Thứ hai, 6/5/2026, 12:30 (GMT+7)"
+            clean_date = re.sub(r"(Thứ\s+[a-z0-9]+|Chủ\s+nhật|T[2-7]|CN)[\s,]*", "", raw_date, flags=re.IGNORECASE)
+            clean_date = re.sub(r"\(?GMT[+-]\d+\)?", "", clean_date).strip()
+            
+            match = re.search(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})[\s,]*(\d{1,2}):(\d{2})", clean_date)
+            if match:
+                d, mo, y, h, m = [int(x) for x in match.groups()]
+                dt = datetime(y, mo, d, h, m, tzinfo=_VN_TZ)
+                if dt < self.stop_date:
+                    logger.info(f"Article is older than stop_date ({dt} < {self.stop_date}). Skipping.")
+                    return # Skip this item
+        except Exception as e:
+            logger.debug(f"Date check failed on detail page: {e}")
 
         # Stable ID Mapping & Content Fingerprinting
         canonical_url = response.css("link[rel='canonical']::attr(href)").get() or response.url
